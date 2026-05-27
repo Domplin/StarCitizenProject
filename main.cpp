@@ -1,4 +1,3 @@
-
 #include "screencap.h"
 #include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
@@ -7,9 +6,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-
 #include <windows.h>
-
 
 // ── Region selector ──────────────────────────────────────────────────────────
 struct Region { int x, y, w, h; };
@@ -31,7 +28,7 @@ LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_MOUSEMOVE:
         if (g_selecting) {
             g_end = { LOWORD(lp), HIWORD(lp) };
-            InvalidateRect(hwnd, NULL, FALSE); // trigger repaint
+            InvalidateRect(hwnd, NULL, FALSE);
         }
         return 0;
 
@@ -49,32 +46,26 @@ LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
-        // Semi-transparent dark overlay
         RECT rc; GetClientRect(hwnd, &rc);
         HBRUSH dimBrush = CreateSolidBrush(RGB(0, 0, 0));
         FillRect(hdc, &rc, dimBrush);
         DeleteObject(dimBrush);
 
-        // Draw selection rectangle in bright green
         if (g_selecting || g_done) {
             RECT sel = {
                 std::min(g_start.x, g_end.x), std::min(g_start.y, g_end.y),
                 std::max(g_start.x, g_end.x), std::max(g_start.y, g_end.y)
-
             };
-            // Clear the selected area so you can see through it
             HBRUSH clearBrush = CreateSolidBrush(RGB(255, 255, 255));
             FillRect(hdc, &sel, clearBrush);
             DeleteObject(clearBrush);
 
-            // Green border
             HPEN pen = CreatePen(PS_SOLID, 2, RGB(0, 255, 0));
             HPEN old = (HPEN)SelectObject(hdc, pen);
             Rectangle(hdc, sel.left, sel.top, sel.right, sel.bottom);
             SelectObject(hdc, old);
             DeleteObject(pen);
 
-            // Show dimensions
             char buf[64];
             sprintf(buf, "%dx%d", abs(g_end.x - g_start.x), abs(g_end.y - g_start.y));
             SetTextColor(hdc, RGB(0, 255, 0));
@@ -82,7 +73,6 @@ LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             TextOutA(hdc, sel.left + 4, sel.top + 4, buf, strlen(buf));
         }
 
-        // Instructions
         SetTextColor(hdc, RGB(255, 255, 255));
         SetBkMode(hdc, TRANSPARENT);
         TextOutA(hdc, 20, 20,
@@ -93,7 +83,7 @@ LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
 
     case WM_KEYDOWN:
-        if (wp == VK_ESCAPE) DestroyWindow(hwnd); // ESC to cancel
+        if (wp == VK_ESCAPE) DestroyWindow(hwnd);
         return 0;
 
     case WM_DESTROY:
@@ -104,16 +94,14 @@ LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 Region selectRegion() {
-    // Register overlay window class
     WNDCLASSA wc    = {};
     wc.lpfnWndProc  = OverlayProc;
     wc.hInstance    = GetModuleHandleA(NULL);
     wc.lpszClassName = "OverlayClass";
-    wc.hCursor      = LoadCursor(NULL, IDC_CROSS); // crosshair cursor
+    wc.hCursor      = LoadCursor(NULL, IDC_CROSS);
     wc.style        = CS_HREDRAW | CS_VREDRAW;
     RegisterClassA(&wc);
 
-    // Full screen overlay
     int sw = GetSystemMetrics(SM_CXSCREEN);
     int sh = GetSystemMetrics(SM_CYSCREEN);
 
@@ -125,12 +113,10 @@ Region selectRegion() {
         NULL, NULL, GetModuleHandleA(NULL), NULL
     );
 
-    // 120/255 opacity — dark but still see-through enough
     SetLayeredWindowAttributes(g_overlay, 0, 120, LWA_ALPHA);
     ShowWindow(g_overlay, SW_SHOW);
     SetForegroundWindow(g_overlay);
 
-    // Message loop
     MSG msg;
     while (GetMessageA(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -146,37 +132,64 @@ Region selectRegion() {
     return r;
 }
 
-// ── Known Star Citizen mining resources ─────────────────────────────────────
-static const std::vector<std::string> KNOWN_RESOURCES = {
-    "Quantanium", "Bexalite", "Taranite", "Borase", "Stileron",
-    "Aphorite", "Hadanite", "Janalite", "Dolivine", "Felsic",
-    "Laranite", "Agricium", "Gold", "Titanium", "Tungsten",
-    "Silicon", "Quartz", "Diamond", "Copper", "Iron",
-    "Corundum", "Beryl", "Ice", "Inertite", "Orthoclase"
+// ── RS Signature lookup table (4.7 PTU) ─────────────────────────────────────
+struct Resource {
+    int rsValue;
+    const char* name;
 };
 
-int editDistance(const std::string& a, const std::string& b) {
-    int m = a.size(), n = b.size();
-    std::vector<std::vector<int>> dp(m+1, std::vector<int>(n+1));
-    for (int i = 0; i <= m; i++) dp[i][0] = i;
-    for (int j = 0; j <= n; j++) dp[0][j] = j;
-    for (int i = 1; i <= m; i++)
-        for (int j = 1; j <= n; j++)
-            dp[i][j] = (tolower(a[i-1]) == tolower(b[j-1]))
-                ? dp[i-1][j-1]
-                : 1 + std::min({dp[i-1][j], dp[i][j-1], dp[i-1][j-1]});
-    return dp[m][n];
-}
+static const std::vector<Resource> RS_TABLE = {
+    {3170, "Quantainium"},
+    {3185, "Stileron"},
+    {3200, "Savrilium"},
+    {3370, "Ouratite"},
+    {3385, "Riccite"},
+    {3400, "Lindinium"},
+    {3540, "Beryl"},
+    {3555, "Taranite"},
+    {3570, "Borase"},
+    {3585, "Gold"},
+    {3600, "Bexalite"},
+    {3825, "Laranite"},
+    {3840, "Aslarite"},
+    {3855, "Titanium"},
+    {3870, "Tungsten"},
+    {3885, "Agricium"},
+    {3900, "Torite"},
+    {4180, "Hephestanite"},
+    {4195, "Tin"},
+    {4210, "Quartz"},
+    {4225, "Corundum"},
+    {4240, "Copper"},
+    {4255, "Silicon"},
+    {4270, "Iron"},
+    {4285, "Aluminium"},
+    {4300, "Ice"},
+};
 
-std::string matchResource(const std::string& word) {
-    std::string best; int bestDist = 999;
-    for (const auto& res : KNOWN_RESOURCES) {
-        int d = editDistance(word, res);
-        if (d < bestDist) { bestDist = d; best = res; }
+// ── Find resource by RS value across multipliers ─────────────────────────────
+std::string matchByRS(int value, int& outMult) {
+    const Resource* best = nullptr;
+    int bestDiff = 999999;
+    int bestMult = 1;
+
+    for (const auto& r : RS_TABLE) {
+        for (int mult = 1; mult <= 10; mult++) {
+            int divided = value / mult;
+            int diff = abs(r.rsValue - divided);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                best = &r;
+                bestMult = mult;
+            }
+        }
     }
-    return (bestDist <= 4) ? best : "";
+
+    outMult = bestMult;
+    return (best && bestDiff <= 50) ? best->name : "";
 }
 
+// ── Convert Pixel buffer → Leptonica PIX ────────────────────────────────────
 PIX* pixelsToPix(const std::vector<Pixel>& pixels, int width, int height) {
     PIX* pix = pixCreate(width, height, 32);
     for (int y = 0; y < height; y++)
@@ -241,7 +254,13 @@ int main() {
     pixDestroy(&pix);
 
     tesseract::TessBaseAPI ocr;
-    if (ocr.Init(".", "eng", tesseract::OEM_LSTM_ONLY)) {
+
+    char exePath[MAX_PATH];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH);
+    std::string tessPath(exePath);
+    tessPath = tessPath.substr(0, tessPath.find_last_of("\\/"));
+
+    if (ocr.Init(tessPath.c_str(), "eng", tesseract::OEM_LSTM_ONLY)) {
         fprintf(stderr, "Tesseract init failed — is tessdata/eng.traineddata present?\n");
         return 1;
     }
@@ -256,24 +275,27 @@ int main() {
 
     printf("\n── Raw OCR output ──\n%s\n", text.c_str());
 
-    // ── 5. Match resources ───────────────────────────────────────────────────
+    // ── 5. Parse numbers and match by RS value ───────────────────────────────
     printf("── Identified resources ──\n");
-    std::string word, lastResource;
+    std::string word;
     bool foundAny = false;
+
     text += " ";
     for (char c : text) {
-        if (isalnum(c) || c=='.' || c=='%') {
+        if (isdigit(c)) {
             word += c;
         } else {
             if (!word.empty()) {
-                bool isNum = isdigit(word[0]) || word[0]=='.';
-                if (isNum && !lastResource.empty()) {
-                    printf("  %-15s : %s\n", lastResource.c_str(), word.c_str());
-                    lastResource.clear();
-                    foundAny = true;
-                } else if (!isNum && word.size()>=3) {
-                    std::string match = matchResource(word);
-                    if (!match.empty()) lastResource = match;
+                int value = std::stoi(word);
+                // RS values start at n*3000 minimum
+                if (value >= 3000 && value <= 50000) {
+                    int mult = 1;
+                    std::string name = matchByRS(value, mult);
+                    if (!name.empty()) {
+                        printf("  RS %-6d  (n x %-2d)  ->  %s\n",
+                               value, mult, name.c_str());
+                        foundAny = true;
+                    }
                 }
                 word.clear();
             }
@@ -281,7 +303,7 @@ int main() {
     }
 
     if (!foundAny)
-        printf("  No resources detected — check debug.bmp\n");
+        printf("  No RS values detected — check debug.bmp\n");
 
     return 0;
 }
