@@ -2,6 +2,10 @@
 #include <cmath>
 #include <cctype>
 
+
+
+
+
 const std::vector<ResourceMatcher::Resource> ResourceMatcher::RS_TABLE = {
     {3170, "Quantainium"}, {3185, "Stileron"},    {3200, "Savrilium"},
     {3370, "Ouratite"},    {3385, "Riccite"},      {3400, "Lindinium"},
@@ -17,18 +21,20 @@ const std::vector<ResourceMatcher::Resource> ResourceMatcher::RS_TABLE = {
 std::string ResourceMatcher::matchByRS(int value, int& outMult) {
     for(const auto& r : RS_TABLE){
         if(value % r.rsValue == 0){
-            outMult = r.rsValue / value;
+            outMult = value / r.rsValue;
             return r.name;
         }
     }
     return "not a valid resource";
 }
 
+
+
 std::vector<ResourceMatch> ResourceMatcher::parse(const std::string& ocrText) {
     std::vector<ResourceMatch> results;
     std::string word;
 
-    // Strip commas so "19,020" becomes "19020"
+    
     std::string text;
     for (char c : ocrText)
         if (c != ',') text += c;
@@ -40,7 +46,7 @@ std::vector<ResourceMatch> ResourceMatcher::parse(const std::string& ocrText) {
         } else {
             if (!word.empty()) {
                 int value = std::stoi(word);
-                if (value >= 3000 && value <= 50000) {
+                if (value >= 0 && value <= 1000000) {
                     int mult = 1;
                     std::string name = matchByRS(value, mult);
                     if (!name.empty())

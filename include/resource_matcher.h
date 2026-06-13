@@ -16,7 +16,7 @@ public:
 
 private:
     std::string matchByRS(int value, int& outMult);
-
+    
     struct Resource {int rsValue; const char* name;};
     static const std::vector<Resource> RS_TABLE;
 };
