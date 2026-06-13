@@ -29,11 +29,11 @@ int main() {
     OcrEngine ocr;
     if (!ocr.init(tessDir)) return 1;
     std::string text = ocr.run(cap.pixels(), cap.width(), cap.height());
-    printf("\n── Raw OCR output ──\n%s\n", text.c_str());
+    printf("\n--- Raw OCR output ---\n%s\n", text.c_str());
 
     ResourceMatcher matcher;
     auto matches = matcher.parse(text);
-    printf("── Identified resources ──\n");
+    printf("--- Identified resources ---\n");
     if (matches.empty()) {
         printf("  No RS values detected — check debug.bmp\n");
     } else {

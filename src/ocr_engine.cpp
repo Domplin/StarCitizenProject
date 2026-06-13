@@ -12,7 +12,8 @@ OcrEngine::~OcrEngine() {
 
 bool OcrEngine::init(const std::string& tessDataDir) {
     auto* api = new tesseract::TessBaseAPI();
-    if (api->Init(tessDataDir.c_str(), "eng", tesseract::OEM_LSTM_ONLY)) {
+    std::string tessdata = tessDataDir + "/tessdata";  // <-- add this
+    if (api->Init(tessdata.c_str(), "eng", tesseract::OEM_LSTM_ONLY)) {  // <-- change tessDataDir.c_str() to tessdata.c_str()
         fprintf(stderr, "Tesseract init failed\n");
         delete api;
         return false;

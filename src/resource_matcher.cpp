@@ -15,26 +15,24 @@ const std::vector<ResourceMatcher::Resource> ResourceMatcher::RS_TABLE = {
 };
 
 std::string ResourceMatcher::matchByRS(int value, int& outMult) {
-    const Resource* best = nullptr;
-    int bestDiff = 999999, bestMult = 1;
-    for (const auto& r : RS_TABLE) {
-        for (int mult = 1; mult <= 10; mult++) {
-            int diff = abs(r.rsValue - value / mult);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                best     = &r;
-                bestMult = mult;
-            }
+    for(const auto& r : RS_TABLE){
+        if(value % r.rsValue == 0){
+            outMult = r.rsValue / value;
+            return r.name;
         }
     }
-    outMult = bestMult;
-    return (best && bestDiff <= 50) ? best->name : "";
+    return "not a valid resource";
 }
 
 std::vector<ResourceMatch> ResourceMatcher::parse(const std::string& ocrText) {
     std::vector<ResourceMatch> results;
     std::string word;
-    std::string text = ocrText + " ";
+
+    // Strip commas so "19,020" becomes "19020"
+    std::string text;
+    for (char c : ocrText)
+        if (c != ',') text += c;
+    text += " ";
 
     for (char c : text) {
         if (isdigit(c)) {
