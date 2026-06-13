@@ -38,7 +38,8 @@ int main() {
         printf("  No RS values detected — check debug.bmp\n");
     } else {
         for (const auto& m : matches)
-            printf("  RS %-6d  (n x %-2d)  ->  %s\n", m.rsValue, m.multiplier, m.name.c_str());
+            printf("  RS %-6d -> %s x %d \n", m.rsValue, m.name.c_str(), m.multiplier);
+              
     }
 
     return 0;
